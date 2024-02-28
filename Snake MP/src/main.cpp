@@ -31,6 +31,10 @@ void callback(char* topic, byte* payload, unsigned int length) {
   consolidatedData[payload[0]&3] = payload[0];
 }
 
+void updateConsolidated(){
+  consolidatedData[data_game&ID] = data_game;
+}
+
 void readData(){
   Serial.println("Awaiting data...");
   while (!mySerial.available()) {
@@ -38,7 +42,7 @@ void readData(){
     delay(1);
   }
   data_game = mySerial.read();
-  consolidatedData[data_game&ID] = data_game;
+  updateConsolidated();
   for (int i = 8; i > 0; i--) {
     Serial.print(bitRead(data_game, i));
   }
@@ -48,11 +52,19 @@ void sendData(uint8_t data){
   mySerial.write(data);
 }
 
+void sendDataOfEveryOther(){
+  for(int i = 0; i < 4; i++){
+    if (i != (data_game & ID) && consolidatedData[i]&PLAYER_CHECK == PLAYER_CHECK){
+      sendData(consolidatedData[i]);
+    }
+  }
+}
+
 bool checkForEvery(uint8_t bit_condition){
   uint8_t control = 0;
   uint8_t control_users = 0;
   for(int i = 0; i < 4; i++){
-    if(consolidatedData[i]& 128 == 128){
+    if(consolidatedData[i]& PLAYER_CHECK == PLAYER_CHECK){
       control_users++;
       if(consolidatedData[i]& bit_condition == bit_condition) control++;
     }
@@ -67,12 +79,12 @@ void copyArray(){
   }
 }
 
-bool checkForEveryLastEqual(uint8_t bit_condition, uint8_t last_data[]){
+bool checkForEveryLastEqual(uint8_t bit_condition){
   uint8_t control = 0;
   uint8_t control_users = 0;
   for(int i = 0; i < 4; i++){
-    if(consolidatedData[i]& 128 == 128){
-      if(consolidatedData[i]& bit_condition == last_data[i] & bit_condition) control++;
+    if(consolidatedData[i]& PLAYER_CHECK == PLAYER_CHECK){
+      if(consolidatedData[i]& bit_condition == last_data_game[i] & bit_condition) control++;
     }
     control_users++;
     }
@@ -150,15 +162,21 @@ void game_run(){
     readData();
   }while(!checkForEvery(CHECK));
 
+  updateConsolidated();
+  for(int i = 0; i < 4; i++){
+    consolidatedData[i] |= RUNNING_GAME;
+  }
+  sendData(data_game);
+  publishForEveryOther(consolidatedData);
+
   while(checkForEvery(RUNNING_GAME)){
-    if(data_game&8 != last_data_game&8){
+    if(!checkForEveryLastEqual(CHECK)){
+      sendDataOfEveryOther();
+      
       sendData(data_game);
-      last_data_game = data_game;
+      
       copyArray();
     }
-    
-  
-    
   }
 }
 
