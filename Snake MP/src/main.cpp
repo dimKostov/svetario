@@ -115,12 +115,8 @@ void setup_host(){
     }
 }
 
-void publishForEveryOther(uint8_t consolidatedData[]){
-  for(int i = 0; i < 4; i++){
-    if (i != (data_game & ID)){
-      client.publish(("game/" + String((char)i)).c_str(), String((char)data_game).c_str());
-    }
-  }
+void publishForEveryOther(){
+  client.publish(("game/" + String((char)(data_game & ID))).c_str(), String((char)data_game).c_str());
 }
 
 void setup_client() {
@@ -160,21 +156,17 @@ void setup_client() {
 void game_run(){
   do{
     readData();
+    publishForEveryOther();
   }while(!checkForEvery(CHECK));
 
+  data_game |= RUNNING_GAME;
   updateConsolidated();
-  for(int i = 0; i < 4; i++){
-    consolidatedData[i] |= RUNNING_GAME;
-  }
-  sendData(data_game);
-  publishForEveryOther(consolidatedData);
 
   while(checkForEvery(RUNNING_GAME)){
     if(!checkForEveryLastEqual(CHECK)){
+      readData();
+      publishForEveryOther();
       sendDataOfEveryOther();
-      
-      sendData(data_game);
-      
       copyArray();
     }
   }
