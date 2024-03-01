@@ -2,6 +2,7 @@
 #include <ESP8266WebServer.h>
 #include <SoftwareSerial.h>
 #include <PubSubClient.h>
+#include <uMQTTBroker.h>
 
 #define RX_PIN 5 // GPIO5, can be changed to any available pin
 #define TX_PIN 4 // GPIO4, can be changed to any available pin
@@ -172,6 +173,27 @@ void game_run(){
   }
 }
 
+void reset_game(){
+  for(int i = 0; i < 4; i++){
+    client.unsubscribe(("game/" + String((char)(consolidatedData[i] & ID))).c_str());
+  }
+  client.disconnect();
+  if(data_game & HOST_CLIENT == HOST_CLIENT){ 
+    WiFi.softAPdisconnect(true);
+  }
+  else {
+    WiFi.disconnect();
+  }
+  data_game = 0;
+  for(int i = 0; i < 4; i++){
+    consolidatedData[i] = 0;
+  }
+  for(int i = 0; i < 4; i++){
+    last_data_game[i] = 0;
+  }
+
+}
+
 void setup()
 {
   pinMode(LED, OUTPUT);
@@ -186,7 +208,7 @@ void loop()
 {
   readData();
   //if((data_game & 64) == 64){
-    if((data_game & 4) == 4){
+    if((data_game & HOST_CLIENT) == HOST_CLIENT){
       setup_host();
       game_run();
     }
